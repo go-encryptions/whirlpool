@@ -88,37 +88,6 @@ func buildTables() {
 	}
 }
 
-// compress is the Miyaguchi-Preneel step h = W_h(m) ^ h ^ m. The round
-// transformation (step) is the combined SubBytes, ShiftColumns and MixRows
-// of the reference implementation, unrolled; whirlpool_test.go keeps the
-// reference loop form as an oracle.
-func compress(h *[8]uint64, block []byte) {
-	m0 := binary.BigEndian.Uint64(block[0:])
-	m1 := binary.BigEndian.Uint64(block[8:])
-	m2 := binary.BigEndian.Uint64(block[16:])
-	m3 := binary.BigEndian.Uint64(block[24:])
-	m4 := binary.BigEndian.Uint64(block[32:])
-	m5 := binary.BigEndian.Uint64(block[40:])
-	m6 := binary.BigEndian.Uint64(block[48:])
-	m7 := binary.BigEndian.Uint64(block[56:])
-	k0, k1, k2, k3, k4, k5, k6, k7 := h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]
-	s0, s1, s2, s3, s4, s5, s6, s7 := m0^k0, m1^k1, m2^k2, m3^k3, m4^k4, m5^k5, m6^k6, m7^k7
-	for r := 1; r <= rounds; r++ {
-		k0, k1, k2, k3, k4, k5, k6, k7 = step(&c, k0, k1, k2, k3, k4, k5, k6, k7)
-		k0 ^= rc[r]
-		s0, s1, s2, s3, s4, s5, s6, s7 = step(&c, s0, s1, s2, s3, s4, s5, s6, s7)
-		s0, s1, s2, s3, s4, s5, s6, s7 = s0^k0, s1^k1, s2^k2, s3^k3, s4^k4, s5^k5, s6^k6, s7^k7
-	}
-	h[0] ^= s0 ^ m0
-	h[1] ^= s1 ^ m1
-	h[2] ^= s2 ^ m2
-	h[3] ^= s3 ^ m3
-	h[4] ^= s4 ^ m4
-	h[5] ^= s5 ^ m5
-	h[6] ^= s6 ^ m6
-	h[7] ^= s7 ^ m7
-}
-
 type digest struct {
 	h    [8]uint64
 	buf  [BlockSize]byte
