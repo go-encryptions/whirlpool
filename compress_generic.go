@@ -2,7 +2,7 @@ package whirlpool
 
 import "encoding/binary"
 
-// compress is the Miyaguchi-Preneel step h = W_h(m) ^ h ^ m. The round
+// compressGo is the portable compress: the Miyaguchi-Preneel step h = W_h(m) ^ h ^ m. The round
 // transformation is the combined SubBytes, ShiftColumns and MixRows of the
 // reference implementation, written out for all eight words of the key and of
 // the state inside the round loop. It was a separate step function called
