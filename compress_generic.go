@@ -9,8 +9,7 @@ import "encoding/binary"
 // twice per round; the call forced sixteen live words through the stack and
 // kept the two independent chains apart, and inlining it is 14 % faster on
 // arm64. whirlpool_test.go keeps the reference loop form as an oracle.
-func compress(h *[8]uint64, block []byte) {
-	c := &c
+func compressGo(h *[8]uint64, block []byte) {
 	m0 := binary.BigEndian.Uint64(block[0:])
 	m1 := binary.BigEndian.Uint64(block[8:])
 	m2 := binary.BigEndian.Uint64(block[16:])

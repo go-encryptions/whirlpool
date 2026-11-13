@@ -206,7 +206,7 @@ func compressReference(h *[8]uint64, block []byte) {
 
 func TestCompressMatchesReference(t *testing.T) {
 	New()
-	var got, want [8]uint64
+	var got, portable, want [8]uint64
 	block := make([]byte, BlockSize)
 	for n := 0; n < 200; n++ {
 		for i := range block {
@@ -221,9 +221,13 @@ func TestCompressMatchesReference(t *testing.T) {
 			}
 		}
 		compress(&got, block)
+		compressGo(&portable, block)
 		compressReference(&want, block)
 		if got != want {
 			t.Fatalf("block %d: compress %x, reference %x", n, got, want)
+		}
+		if portable != want {
+			t.Fatalf("block %d: compressGo %x, reference %x", n, portable, want)
 		}
 	}
 }

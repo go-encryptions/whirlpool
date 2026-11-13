@@ -1,6 +1,7 @@
 // Package whirlpool implements the Whirlpool hash function (ISO/IEC 10118-3,
-// 512-bit digest) in pure Go: the final 2003 version, with the tweaked S-box
-// and the diffusion matrix cir(1, 1, 4, 1, 8, 5, 2, 9) of Barreto and Rijmen.
+// 512-bit digest) in Go, with an assembly kernel on arm64: the final 2003
+// version, with the tweaked S-box and the diffusion matrix
+// cir(1, 1, 4, 1, 8, 5, 2, 9) of Barreto and Rijmen.
 //
 // It is a plain table-driven implementation. The tables are indexed by secret
 // data, so it is not constant-time; do not use it where a local cache-timing
@@ -46,9 +47,17 @@ var (
 	tableOnce sync.Once
 	// c[t][x] is S[x] times the circulant row [1 1 4 1 8 5 2 9] rotated right
 	// by t bytes.
+	// tab holds the eight tables and the round constants contiguously, so that
+	// the assembly kernel reaches rc[r] at a constant offset from c[0].
+	tab tables
+	c   = &tab.c
+	rc  = &tab.rc
+)
+
+type tables struct {
 	c  [8][256]uint64
 	rc [rounds + 1]uint64
-)
+}
 
 func mulx(v uint64) uint64 {
 	v <<= 1

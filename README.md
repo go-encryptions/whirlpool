@@ -6,7 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/go-encryptions/whirlpool.svg)](https://pkg.go.dev/github.com/go-encryptions/whirlpool)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 
-Pure-Go **Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library.
+**Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library. Plain Go everywhere, plus an arm64 assembly kernel (`compress_arm64.s`, generated with go-asmgen by `internal/genasm`) that keeps the whole round in registers.
 
 Its first consumer is [`go-fde/veracrypt`](https://github.com/go-fde/veracrypt), which needs Whirlpool-512 as one of the PRFs of PBKDF2-HMAC to derive header keys of VeraCrypt volumes.
 
