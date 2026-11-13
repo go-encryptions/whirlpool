@@ -2,6 +2,7 @@ package whirlpool
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"hash"
 	"os"
@@ -168,7 +169,7 @@ func TestSBoxIsPermutation(t *testing.T) {
 }
 
 // lookup is the reference loop form of the round transformation (Barreto and
-// Rijmen's Whirlpool.java), the oracle for the unrolled step.
+// Rijmen's Whirlpool.java), the oracle for the unrolled compress.
 func lookup(s *[8]uint64, i int) uint64 {
 	var v uint64
 	for t := 0; t < 8; t++ {
@@ -177,20 +178,57 @@ func lookup(s *[8]uint64, i int) uint64 {
 	return v
 }
 
-func TestStepMatchesReference(t *testing.T) {
+// compressReference is compress in loop form: the key schedule and the state
+// share the round function.
+func compressReference(h *[8]uint64, block []byte) {
+	var m, k, s [8]uint64
+	for i := range m {
+		m[i] = binary.BigEndian.Uint64(block[8*i:])
+		k[i] = h[i]
+		s[i] = m[i] ^ k[i]
+	}
+	for r := 1; r <= rounds; r++ {
+		var nk, ns [8]uint64
+		for i := range nk {
+			nk[i] = lookup(&k, i)
+		}
+		nk[0] ^= rc[r]
+		k = nk
+		for i := range ns {
+			ns[i] = lookup(&s, i) ^ k[i]
+		}
+		s = ns
+	}
+	for i := range h {
+		h[i] ^= s[i] ^ m[i]
+	}
+}
+
+func TestCompressMatchesReference(t *testing.T) {
 	New()
-	s := [8]uint64{0x0123456789abcdef, 0xfedcba9876543210, 1, 2 << 40, ^uint64(0), 0, 0x8000000000000000, 0xdeadbeefcafef00d}
-	for round := 0; round < 50; round++ {
-		var want [8]uint64
-		for i := range want {
-			want[i] = lookup(&s, i)
+	var got, portable, want [8]uint64
+	block := make([]byte, BlockSize)
+	for n := 0; n < 200; n++ {
+		for i := range block {
+			block[i] = byte(n*131 + i*i*7 + i)
 		}
-		var got [8]uint64
-		got[0], got[1], got[2], got[3], got[4], got[5], got[6], got[7] = step(&c, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7])
+		if n == 0 {
+			clear(block)
+		}
+		if n == 1 {
+			for i := range block {
+				block[i] = 0xff
+			}
+		}
+		compress(&got, block)
+		compressGo(&portable, block)
+		compressReference(&want, block)
 		if got != want {
-			t.Fatalf("round %d: step %x, reference %x", round, got, want)
+			t.Fatalf("block %d: compress %x, reference %x", n, got, want)
 		}
-		s = got
+		if portable != want {
+			t.Fatalf("block %d: compressGo %x, reference %x", n, portable, want)
+		}
 	}
 }
 

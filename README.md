@@ -6,7 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/go-encryptions/whirlpool.svg)](https://pkg.go.dev/github.com/go-encryptions/whirlpool)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 
-Pure-Go **Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library.
+**Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library. Plain Go everywhere, plus an arm64 assembly kernel (`compress_arm64.s`, generated with go-asmgen by `internal/genasm`) that keeps the whole round in registers.
 
 Its first consumer is [`go-fde/veracrypt`](https://github.com/go-fde/veracrypt), which needs Whirlpool-512 as one of the PRFs of PBKDF2-HMAC to derive header keys of VeraCrypt volumes.
 
@@ -61,10 +61,10 @@ Bibliography opened for this work: the Whirlpool reference archive (`Whirlpool.j
 
 | per call | this package | Botan 3.14.1 | ratio |
 |---|---|---|---|
-| 1 KiB | 2.864 µs ± 6 % (341 MiB/s) | 2.487 µs ± 6 % (393 MiB/s) | this package **1.15x slower** |
-| 64 KiB | 171.1 µs ± 8 % (365 MiB/s) | 147.7 µs ± 1 % (423 MiB/s) | this package **1.16x slower** |
+| 1 KiB | 2.355 µs ± 1 % (415 MiB/s) | 2.507 µs ± 5 % (390 MiB/s) | this package **1.06x faster** |
+| 64 KiB | 140.1 µs ± 1 % (446 MiB/s) | 149.6 µs ± 24 % (418 MiB/s) | this package **1.07x faster** |
 
-Times are per call, so lower is better. This package is slower than the reference here and the gap is an open defect, tracked in the issue tracker. `internal/botanbench` reports Botan's rate as ns/op, and the ratios are computed from the two result files' medians. No SIMD is used.
+Times are per call, so lower is better. Before the arm64 kernel the Go version was 1.15x slower than Botan (2.864 µs against 2.487 µs at 1 KiB). `internal/botanbench` reports Botan's rate as ns/op, and the ratios are computed from the two result files' medians. The kernel (`compress_arm64.s`) holds the round in registers where the Go compiler spills it; other architectures run the portable Go form, which is unchanged. No SIMD is used.
 
 ### PBKDF2-HMAC
 
