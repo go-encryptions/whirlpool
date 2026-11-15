@@ -3,7 +3,7 @@ module github.com/go-encryptions/whirlpool/internal/genasm
 go 1.27.3
 
 require (
-	github.com/go-asmgen/asmgen v0.23.2
+	github.com/go-asmgen/asmgen v0.26.0
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -11,5 +11,3 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 )
-
-replace github.com/go-asmgen/asmgen => ../../../go-asmgen-asmgen-gfni
