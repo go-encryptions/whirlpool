@@ -1,5 +1,8 @@
-// Command genasm writes compress_arm64.s, the arm64 kernel of the Whirlpool
-// compression function, with go-asmgen.
+// Command genasm writes the assembly kernels of the Whirlpool compression
+// function with go-asmgen: compress_arm64.s (-a arm64), compress_amd64.s (-a
+// amd64, scalar, any amd64 processor) and compress_avx512_amd64.s (-a avx512,
+// vector, AVX-512 BW, VBMI and GFNI). The scalar kernels are described first,
+// the vector one in avx512.go.
 //
 // The Go compiler keeps all 128 byte extractions of a round live and spills
 // them (a 1.7 KiB frame, seen with go tool objdump), so the lookups share the
@@ -9,7 +12,7 @@
 // between the two halves of a round. Each lookup is one UBFX, one indexed load
 // and one EOR.
 //
-// Usage: go run . [-o compress_arm64.s]
+// Usage: go run . [-a arm64|amd64|avx512] [-o file]
 package main
 
 import (
@@ -22,6 +25,19 @@ import (
 )
 
 var osExit = os.Exit
+
+// kernel is one generated file: the generator and the default file name.
+type kernel struct {
+	build func() string
+	file  string
+}
+
+// kernels maps -arch to the kernel it writes.
+var kernels = map[string]kernel{
+	"arm64":  {buildArm64, "compress_arm64.s"},
+	"amd64":  {buildAmd64, "compress_amd64.s"},
+	"avx512": {buildAVX512, "compress_avx512_amd64.s"},
+}
 
 const (
 	rounds  = 10
@@ -81,8 +97,8 @@ func (g *gen) half(first bool, rcOff int) {
 	}
 }
 
-// build returns the assembly text.
-func build() string {
+// buildArm64 returns the arm64 assembly text.
+func buildArm64() string {
 	sig := arm64.Layout(
 		[]string{"h", "p", "t"}, []arm64.Type{arm64.Int64, arm64.Int64, arm64.Int64},
 		nil, nil,
@@ -139,20 +155,28 @@ func main() {
 }
 
 func rootCmd() *cobra.Command {
-	var o string
+	var o, arch string
 	cmd := &cobra.Command{
 		Use:          "genasm",
-		Short:        "write the arm64 Whirlpool kernel",
+		Short:        "write the arm64 or amd64 Whirlpool kernel",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := os.WriteFile(o, []byte(build()), 0o644); err != nil {
+			k, ok := kernels[arch]
+			if !ok {
+				return fmt.Errorf("unknown -arch %q (want arm64, amd64 or avx512)", arch)
+			}
+			if o == "" {
+				o = k.file
+			}
+			if err := os.WriteFile(o, []byte(k.build()), 0o644); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote", o)
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&o, "output", "o", "compress_arm64.s", "output file")
+	cmd.Flags().StringVarP(&o, "output", "o", "", "output file (default: the kernel's own name)")
+	cmd.Flags().StringVarP(&arch, "arch", "a", "arm64", "kernel: arm64, amd64 (scalar) or avx512 (amd64 vector)")
 	return cmd
 }
