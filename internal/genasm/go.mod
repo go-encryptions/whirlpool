@@ -3,7 +3,7 @@ module github.com/go-encryptions/whirlpool/internal/genasm
 go 1.27.3
 
 require (
-	github.com/go-asmgen/asmgen v0.23.2
+	github.com/go-asmgen/asmgen v0.26.0
 	github.com/spf13/cobra v1.10.2
 )
 

@@ -1,5 +1,5 @@
 // Package whirlpool implements the Whirlpool hash function (ISO/IEC 10118-3,
-// 512-bit digest) in Go, with an assembly kernel on arm64: the final 2003
+// 512-bit digest) in Go, with assembly kernels on arm64 and amd64: the final 2003
 // version, with the tweaked S-box and the diffusion matrix
 // cir(1, 1, 4, 1, 8, 5, 2, 9) of Barreto and Rijmen.
 //
@@ -52,6 +52,8 @@ var (
 	tab tables
 	c   = &tab.c
 	rc  = &tab.rc
+	// vec is the constants of the vector kernel, built with the tables.
+	vec vecConsts
 )
 
 type tables struct {
@@ -95,6 +97,7 @@ func buildTables() {
 			c[6][i+6]&0x000000000000ff00 ^
 			c[7][i+7]&0x00000000000000ff
 	}
+	vec.build()
 }
 
 type digest struct {
@@ -132,9 +135,9 @@ func (d *digest) Write(p []byte) (int, error) {
 		compress(&d.h, d.buf[:])
 		d.nbuf = 0
 	}
-	for len(p) >= BlockSize {
-		compress(&d.h, p[:BlockSize])
-		p = p[BlockSize:]
+	if k := len(p) &^ (BlockSize - 1); k > 0 {
+		compressBlocks(&d.h, p[:k])
+		p = p[k:]
 	}
 	d.nbuf = copy(d.buf[:], p)
 	return n, nil
