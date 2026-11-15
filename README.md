@@ -6,7 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/go-encryptions/whirlpool.svg)](https://pkg.go.dev/github.com/go-encryptions/whirlpool)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 
-**Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library. Plain Go everywhere, plus an arm64 assembly kernel (`compress_arm64.s`, generated with go-asmgen by `internal/genasm`) that keeps the whole round in registers.
+**Whirlpool** hash (ISO/IEC 10118-3, 512-bit digest) as a standard `hash.Hash`: the final 2003 version, with the revised S-box and the diffusion matrix `cir(1, 1, 4, 1, 8, 5, 2, 9)`. Table-driven, no cgo, no dependency outside the standard library. Plain Go everywhere, plus assembly kernels generated with go-asmgen by `internal/genasm`: arm64 (`compress_arm64.s`, the whole round in registers), amd64 with AVX-512 BW, VBMI and GFNI (`compress_avx512_amd64.s`, the state as one ZMM register) and a scalar amd64 kernel (`compress_amd64.s`) for every other x86-64 processor. The kernel is chosen at run time by CPUID.
 
 Its first consumer is [`go-fde/veracrypt`](https://github.com/go-fde/veracrypt), which needs Whirlpool-512 as one of the PRFs of PBKDF2-HMAC to derive header keys of VeraCrypt volumes.
 
@@ -64,7 +64,18 @@ Bibliography opened for this work: the Whirlpool reference archive (`Whirlpool.j
 | 1 KiB | 2.355 µs ± 1 % (415 MiB/s) | 2.507 µs ± 5 % (390 MiB/s) | this package **1.06x faster** |
 | 64 KiB | 140.1 µs ± 1 % (446 MiB/s) | 149.6 µs ± 24 % (418 MiB/s) | this package **1.07x faster** |
 
-Times are per call, so lower is better. Before the arm64 kernel the Go version was 1.15x slower than Botan (2.864 µs against 2.487 µs at 1 KiB). `internal/botanbench` reports Botan's rate as ns/op, and the ratios are computed from the two result files' medians. The kernel (`compress_arm64.s`) holds the round in registers where the Go compiler spills it; other architectures run the portable Go form, which is unchanged. No SIMD is used.
+Times are per call, so lower is better. Before the arm64 kernel the Go version was 1.15x slower than Botan (2.864 µs against 2.487 µs at 1 KiB). `internal/botanbench` reports Botan's rate as ns/op, and the ratios are computed from the two result files' medians. The kernel (`compress_arm64.s`) holds the round in registers where the Go compiler spills it; other architectures run the portable Go form, which is unchanged. The arm64 kernel uses no SIMD.
+
+### amd64
+
+The amd64 reference is the same Botan 3.14.1, which on this CPU runs its own AVX-512 kernel. AMD Ryzen 9 7950X (Zen 4), one core (`taskset -c 4`), Botan built with clang 22.1.8; `botan speed --msec=3000 --buf-size=1024,65536 Whirlpool` and the Go benchmarks (`-test.cpu=1`, 3 s each) interleaved by round, nine rounds, medians, every round at 1-minute load 0.00. Before this release amd64 had no kernel.
+
+| throughput (MiB/s) | portable Go (v0.3.0) | scalar kernel | AVX-512 kernel | Botan 3.14.1 | AVX-512 kernel against Botan |
+|---|---|---|---|---|---|
+| 1 KiB | 259.4 | 318.4 | 518.3 | 409.6 | **1.27x faster** |
+| 64 KiB | 276.2 | 339.4 | 561.5 | 440.7 | **1.27x faster** |
+
+The vector kernel follows Botan's algorithm (SubBytes on nibbles with `VPSHUFB`, ShiftColumns as one `VPERMB`, MixRows as eight byte-rotated multiples) and differs in two places: the multiples 2, 4, 5, 8 and 9 are one `VGF2P8AFFINEQB` each (multiplication by a constant is linear over GF(2), so it is an 8x8 bit matrix whatever the polynomial, here `0x11d`) instead of chained doublings with a blend, and three-input XORs are `VPTERNLOGD`. It takes whole runs of blocks (at most 1024 per call, so that a large `Write` stays preemptible) and keeps the hash in a register. Processors without BW, VBMI and GFNI (Skylake-X and before, Zen 3 and before) run the scalar kernel, which keeps the round in registers and pays one indexed `XORQ` per table lookup; the CPUID probes also check that the operating system saves ZMM state. The vector kernel is tested only on hardware that has it (it skips otherwise), the Go stand-in covers its dispatch everywhere; CI runners may or may not have AVX-512.
 
 ### PBKDF2-HMAC
 
